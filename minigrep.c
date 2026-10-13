@@ -41,6 +41,8 @@ int main(int argc, char *argv[]) {
                 fprintf(stdout, "Opción -o");
                 break;
             case 'h':
+                printUsage();
+                exit(EXIT_SUCCESS);
             default:
                 printUsage();
                 exit(EXIT_FAILURE);
