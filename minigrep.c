@@ -8,13 +8,26 @@
 
 #define BUF_SIZE 4096
 
-void printUsage() {
-    fprintf(stderr, "Uso: ./minigrep -r REGEX [-s BUFSIZE] [-v] [-n] [-o] [-h]\n");
-    fprintf(stderr, "\t-r REGEX Expresion regular.\n");
-    fprintf(stderr, "\t-s BUFSIZE Tamaño de los buffers de lectura y escritura en bytes (por defecto, 1024).\n");
-    fprintf(stderr, "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n");
-    fprintf(stderr, "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n");
-    fprintf(stderr, "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n");
+void printUsage(int num) {
+
+    FILE *exitProgram;
+
+    if (num == EXIT_SUCCESS) {
+        exitProgram = stdout;
+    }
+
+    else {
+        exitProgram = stderr;
+    }
+
+    fprintf(exitProgram, "Uso: ./minigrep -r REGEX [-s BUFSIZE] [-v] [-n] [-o] [-h]\n");
+    fprintf(exitProgram, "\t-r REGEX Expresion regular.\n");
+    fprintf(exitProgram, "\t-s BUFSIZE Tamaño de los buffers de lectura y escritura en bytes (por defecto, 1024).\n");
+    fprintf(exitProgram, "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n");
+    fprintf(exitProgram, "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n");
+    fprintf(exitProgram, "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n");
+
+    exit(num);
 }
 
 
@@ -41,17 +54,14 @@ int main(int argc, char *argv[]) {
                 fprintf(stdout, "Opción -o");
                 break;
             case 'h':
-                printUsage();
-                exit(EXIT_SUCCESS);
+                printUsage(EXIT_SUCCESS);
             default:
-                printUsage();
-                exit(EXIT_FAILURE);
+                printUsage(EXIT_FAILURE);
         }
     }
 
     if (optind < argc) {
-        printUsage();
-        exit(EXIT_FAILURE);
+        printUsage(EXIT_FAILURE);
     }
 
     return EXIT_SUCCESS;
