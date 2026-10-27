@@ -1,0 +1,27 @@
+{
+    "setup": {
+        "desc": "Archivo de configuración para validación de 'tarea'",
+        "timeout": 1,
+        "cmds": ["touch f1"],
+        "binaries": ["tarea"]
+    },
+    "tests":
+    [
+        {
+            "cmt": "Test existencia 'f1'",
+            "cmd": "ls f1",
+            "out": [
+                "f1\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "Test salida 'tarea'",
+            "cmd": "./tarea # Argumentos",
+            "out": [
+                "Hello, ASO!\n"
+            ],
+            "rc": 0
+        }
+    ]
+}

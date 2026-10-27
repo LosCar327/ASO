@@ -9,7 +9,6 @@
 #define BUF_SIZE 4096
 
 void printUsage(int num) {
-
     FILE *exitProgram;
 
     if (num == EXIT_SUCCESS) {
@@ -58,6 +57,10 @@ int main(int argc, char *argv[]) {
             default:
                 printUsage(EXIT_FAILURE);
         }
+    }
+
+    if (opt == -1) {
+        printUsage(EXIT_FAILURE);
     }
 
     if (optind < argc) {
