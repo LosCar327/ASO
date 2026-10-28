@@ -1,0 +1,312 @@
+{
+    "setup": {
+        "desc": "minigrep",
+        "timeout": 3,
+        "cmds": [
+            "[ \"$(stat -c %s /tmp/1GB.txt 2>/dev/null)\" = 1073741825 ] || { python3 genera_lineas.py -b 1073741825 -l 1024 > /tmp/1GB.txt.part && mv /tmp/1GB.txt.part /tmp/1GB.txt ; }",
+            "ln -sf /tmp/1GB.txt 1GB.txt"
+        ],
+        "binaries": ["libasosysintercept.so.0.1", "minigrep", "genera_lineas.py"]
+    },
+    "tests":
+    [
+        {
+            "cmt": "Opción no válida",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -x",
+            "out": [
+                "./minigrep: invalid option -- 'x'\n",
+                "Uso: ./minigrep -r REGEX [-s BUFSIZE] [-v] [-n] [-o] [-h]\n",
+                "\t-r REGEX Expresión regular.\n",
+                "\t-s BUFSIZE Tamaño de los buffers de lectura y escritura en bytes (por defecto, 1024).\n",
+                "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n",
+                "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n",
+                "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n\n"
+            ],
+            "rc": 1
+        },
+        {
+            "cmt": "Ayuda",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -h",
+            "out": [
+                "Uso: ./minigrep -r REGEX [-s BUFSIZE] [-v] [-n] [-o] [-h]\n",
+                "\t-r REGEX Expresión regular.\n",
+                "\t-s BUFSIZE Tamaño de los buffers de lectura y escritura en bytes (por defecto, 1024).\n",
+                "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n",
+                "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n",
+                "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "getopt",
+            "cmd": "echo -en '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 1234 -r '^[[:digit:]]67[[:digit:]]$' -s 0 -s 1024",
+            "out": "5678\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Sin REGEX",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep",
+            "out": "ERROR: REGEX vacía\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Con REGEX no válida",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '[[:unknown:]]'",
+            "out": "ERROR: REGEX mal construida\n",
+            "rc": 1
+        },
+        {
+            "cmt": "BUFSIZE < 1",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX' -s 0",
+            "out": "ERROR: BUFSIZE debe ser mayor que 0 y menor que o igual a 1 MB\n",
+            "rc": 1
+        },
+        {
+            "cmt": "BUFSIZE > 1 MB",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX' -s 1048577",
+            "out": "ERROR: BUFSIZE debe ser mayor que 0 y menor que o igual a 1 MB\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en read()",
+            "cmd": [
+                "export ASOSYSINT_READ_ENABLED=0",
+                "/usr/bin/echo -en 'REGEX\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX'"
+            ],
+            "out": "ERROR: read()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en malloc()",
+            "cmd": [
+                "export ASOSYSINT_MALLOC_ENABLED=0",
+                "/usr/bin/echo -en 'REGEX\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX'"
+            ],
+            "out": "ERROR: malloc()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en write() con buffer de tamaño mínimo",
+            "cmd": [
+                "export ASOSYSINT_WRITE_ENABLED=0",
+                "/usr/bin/echo -en 'REGEX\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX' -s 1"
+            ],
+            "out": "ERROR: write()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en write() con buffer por defecto",
+            "cmd": [
+                "export ASOSYSINT_WRITE_ENABLED=0",
+                "/usr/bin/echo -en 'REGEX\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX'"
+            ],
+            "out": "ERROR: write()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en write() con buffer de tamaño máximo",
+            "cmd": [
+                "export ASOSYSINT_WRITE_ENABLED=0",
+                "/usr/bin/echo -en 'REGEX\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'REGEX' -s 1048576"
+            ],
+            "out": "ERROR: write()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Línea de longitud máxima sin '\n' y buffer de tamaño 2",
+            "cmd": [
+                "python3 genera_lineas.py -b 4095 -l 4095 -n | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '981$' -s 2 | wc -l"
+            ],
+            "out": "1\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Línea de longitud máxima sin '\n' y buffer de tamaño 1048576",
+            "cmd": [
+                "python3 genera_lineas.py -b 4095 -l 4095 -n | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '981$' -s 1048576 | wc -l"
+            ],
+            "out": "1\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Línea de longitud máxima con '\n' y buffer de tamaño 2",
+            "cmd": [
+                "python3 genera_lineas.py -b 4096 -l 4096    | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '981$' -s 2 | wc -l"
+            ],
+            "out": "1\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Línea demasiado larga sin '\n' y buffer de tamaño 2",
+            "cmd": [
+                "python3 genera_lineas.py -b 4096 -l 4096 -n | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '98$' -s 2"
+            ],
+            "out": "ERROR: Línea demasiado larga\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Línea demasiado larga con '\n' y buffer de tamaño 2",
+            "cmd": [
+                "python3 genera_lineas.py -b 4097 -l 4097    | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '98$' -s 2"
+            ],
+            "out": "ERROR: Línea demasiado larga\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Primera línea completa",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^12[[:digit:]]{2}'"
+            ],
+            "out": "1234\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Primera línea parcial",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '3'"
+            ],
+            "out": "1234\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Línea intermedia completa",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^[[:digit:]]67[[:digit:]]$'"
+            ],
+            "out": "5678\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Línea intermedia parcial",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '67'"
+            ],
+            "out": "5678\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Última línea completa sin '\n'",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB'   | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^[[:digit:]]0A[[:alnum:]]$'"
+            ],
+            "out": "90AB\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Última línea completa sin '\n' con buffer del tamaño de la linea",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB'   | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^[[:digit:]]0A[[:alnum:]]$' -s 4"
+            ],
+            "out": "90AB\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Última línea parcial sin '\n'",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB'   | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '0A'"
+            ],
+            "out": "90AB\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Última línea completa con '\n'",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^[[:digit:]]0A[[:alnum:]]$'"
+            ],
+            "out": "90AB\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Última línea parcial con '\n'",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\n5678\n90AB\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '0A'"
+            ],
+            "out": "90AB\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Lecturas parciales de 1 B",
+            "cmd": [
+                "export ASOSYSINT_READ__MAX_BLOCK_SIZE=1",
+                "python3 genera_lineas.py -b 1024 -l 5          | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aa'"
+            ],
+            "out": "caa0\naa8f\n7eaa\naa8a\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Escrituras parciales de 1 B",
+            "cmd": [
+                "export ASOSYSINT_WRITE__MAX_BLOCK_SIZE=1",
+                "python3 genera_lineas.py -b 1024 -l 5          | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aa'"
+            ],
+            "out": "caa0\naa8f\n7eaa\naa8a\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 KB de datos con líneas de 5 B y buffers de tamaño por defecto",
+            "cmd": [
+                "python3 genera_lineas.py -b 1024 -l 5          | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aa'"
+            ],
+            "out": "caa0\naa8f\n7eaa\naa8a\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 KB de datos con líneas de 5 B y buffers de tamaño mínimo",
+            "cmd": [
+                "python3 genera_lineas.py -b 1024 -l 5          | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aa' -s 1"
+            ],
+            "out": "caa0\naa8f\n7eaa\naa8a\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 KB de datos con líneas de 5 B y buffers de tamaño máximo",
+            "cmd": [
+                "python3 genera_lineas.py -b 1024 -l 5          | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aa' -s 1048576"
+            ],
+            "out": "caa0\naa8f\n7eaa\naa8a\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 GB de datos (script) con líneas de 1 KB",
+            "timeout": 45,
+            "cmd": [
+                "python3 genera_lineas.py -b 1073741825 -l 1024 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '1de2ad3' -s 4096   | wc -l"
+            ],
+            "out": "4\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 GB de datos (script) con líneas de 1 KB (-v)",
+            "timeout": 45,
+            "cmd": [
+                "python3 genera_lineas.py -b 1073741825 -l 1024 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '1de2ad3' -s 4096 -v | wc -l"
+            ],
+            "out": "1048573\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 GB de datos (archivo) con líneas de 1 KB",
+            "timeout": 30,
+            "cmd": [
+                "cat 1GB.txt | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '1de2ad3' -s 4096   | wc -l"
+            ],
+            "out": "4\n",
+            "rc": 0
+        },
+        {
+            "cmt": "1 GB de datos (archivo) con líneas de 1 KB (-v)",
+            "timeout": 30,
+            "cmd": [
+                "cat 1GB.txt | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '1de2ad3' -s 4096 -v | wc -l"
+            ],
+            "out": "1048573\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Segunda línea reconocida de menor longitud que la primera línea reconocida",
+            "cmd": "echo -en '1234\n56789012\n5678\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^[[:digit:]]67[[:digit:]]*$' -s 2",
+            "out": "56789012\n5678\n",
+            "rc": 0
+        }
+    ]
+}

@@ -1,0 +1,226 @@
+{
+    "setup": {
+        "desc": "minigrep (ampliaciones optativas -n y -o)",
+        "timeout": 3,
+        "cmds": [],
+        "binaries": [
+            "libasosysintercept.so.0.1",
+            "minigrep",
+            "genera_lineas.py"
+        ]
+    },
+    "tests": [
+        {
+            "cmt": "-n: básico (se cuentan también las líneas no mostradas)",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\\n5678\\n90AB\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '67' -n"
+            ],
+            "out": "2:5678\n",
+            "rc": 0
+        },
+        {
+            "cmt": "-n: con -v (se numeran también las líneas no mostradas)",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\\n5678\\n90AB\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '67' -v -n"
+            ],
+            "out": [
+                "1:1234\n",
+                "3:90AB\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "-n: paso de 9 a 10, de 99 a 100 y ceros intermedios",
+            "cmd": [
+                "seq 1 1000 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '^(9|10|99|100|909|1000)$' -n"
+            ],
+            "out": [
+                "9:9\n",
+                "10:10\n",
+                "99:99\n",
+                "100:100\n",
+                "909:909\n",
+                "1000:1000\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "-n: números de 5 cifras (64 Ki líneas)",
+            "cmd": [
+                "python3 genera_lineas.py -b 1048576 -l 16 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aaaa' -n"
+            ],
+            "out": [
+                "12233:0aaaa3dc5b5e34b\n",
+                "21128:5021de0800aaaab\n",
+                "26881:e638ace4aaaa084\n",
+                "42436:4fd21ac82aaaabc\n",
+                "42510:6d9aaaa113e7b07\n",
+                "43593:aaaaaff0a3b0648\n",
+                "50071:d5daaaae85b299e\n",
+                "51734:6baaaa6c9ecedcc\n",
+                "57673:d3a925c2635aaaa\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "-n: escrituras parciales de 1 B y buffers de tamaño 3",
+            "cmd": [
+                "export ASOSYSINT_WRITE__MAX_BLOCK_SIZE=1",
+                "python3 genera_lineas.py -b 1048576 -l 16 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r 'aaaa' -n -s 3"
+            ],
+            "out": [
+                "12233:0aaaa3dc5b5e34b\n",
+                "21128:5021de0800aaaab\n",
+                "26881:e638ace4aaaa084\n",
+                "42436:4fd21ac82aaaabc\n",
+                "42510:6d9aaaa113e7b07\n",
+                "43593:aaaaaff0a3b0648\n",
+                "50071:d5daaaae85b299e\n",
+                "51734:6baaaa6c9ecedcc\n",
+                "57673:d3a925c2635aaaa\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "-o: coincidencia al principio, al final y en medio; solo la primera de cada línea",
+            "cmd": [
+                "/usr/bin/echo -e -n '12ab34\\nab34\\nx5y6\\nabc\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -o -r '[[:digit:]]+'"
+            ],
+            "out": [
+                "12\n",
+                "34\n",
+                "5\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "-o: coincidencia vacía (no se muestra nada para esa línea)",
+            "cmd": [
+                "/usr/bin/echo -e -n 'axx\\nxxa\\nb\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -o -r 'x*'"
+            ],
+            "out": "xx\n",
+            "rc": 0
+        },
+        {
+            "cmt": "-o: con -v es un error",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\\n5678\\n90AB\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -r '67' -o -v"
+            ],
+            "out": "ERROR: Las opciones -o y -v son incompatibles\n",
+            "rc": 1
+        },
+        {
+            "cmt": "-o: con -v, el error de BUFSIZE tiene prioridad",
+            "cmd": [
+                "/usr/bin/echo -e -n '1234\\n5678\\n90AB\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -o -v -r '67' -s 0"
+            ],
+            "out": "ERROR: BUFSIZE debe ser mayor que 0 y menor que o igual a 1 MB\n",
+            "rc": 1
+        },
+        {
+            "cmt": "-o: escrituras parciales de 1 B y buffers de tamaño 3",
+            "cmd": [
+                "export ASOSYSINT_WRITE__MAX_BLOCK_SIZE=1",
+                "python3 genera_lineas.py -b 1048576 -l 16 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -s 3 -o -r '[[:digit:]]a{3,}[[:alpha:]]+'"
+            ],
+            "out": [
+                "9aaaddbe\n",
+                "1aaac\n",
+                "1aaadbf\n",
+                "0aaaa\n",
+                "6aaab\n",
+                "5aaab\n",
+                "9aaad\n",
+                "0aaaab\n",
+                "8aaafcedd\n",
+                "2aaaeb\n",
+                "3aaaba\n",
+                "4aaaa\n",
+                "2aaaddf\n",
+                "5aaab\n",
+                "0aaab\n",
+                "2aaaded\n",
+                "8aaae\n",
+                "4aaaf\n",
+                "3aaab\n",
+                "3aaade\n",
+                "7aaaf\n",
+                "0aaac\n",
+                "2aaaabc\n",
+                "9aaaa\n",
+                "8aaab\n",
+                "3aaaebdb\n",
+                "9aaae\n",
+                "8aaaea\n",
+                "1aaaf\n",
+                "1aaae\n",
+                "2aaad\n",
+                "8aaab\n",
+                "3aaaccf\n",
+                "5aaaa\n",
+                "7aaab\n",
+                "7aaaef\n",
+                "4aaadf\n",
+                "4aaafa\n",
+                "1aaafc\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "-n -o: combinada; con coincidencia vacía no se muestra ni el número",
+            "cmd": [
+                "/usr/bin/echo -e -n 'axx\\nxxa\\nb\\n' | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -n -o -r 'x*'"
+            ],
+            "out": "2:xx\n",
+            "rc": 0
+        },
+        {
+            "cmt": "-n -o: combinada, 64 Ki líneas y buffers de 64 B",
+            "cmd": [
+                "python3 genera_lineas.py -b 1048576 -l 16 | LD_PRELOAD=./libasosysintercept.so.0.1 ./minigrep -n -o -r '[[:digit:]]a{3,}[[:alpha:]]+' -s 64"
+            ],
+            "out": [
+                "1548:9aaaddbe\n",
+                "6368:1aaac\n",
+                "11775:1aaadbf\n",
+                "12233:0aaaa\n",
+                "16584:6aaab\n",
+                "17020:5aaab\n",
+                "18260:9aaad\n",
+                "21128:0aaaab\n",
+                "22405:8aaafcedd\n",
+                "25199:2aaaeb\n",
+                "25419:3aaaba\n",
+                "26881:4aaaa\n",
+                "28415:2aaaddf\n",
+                "29656:5aaab\n",
+                "32235:0aaab\n",
+                "34202:2aaaded\n",
+                "36097:8aaae\n",
+                "36198:4aaaf\n",
+                "37875:3aaab\n",
+                "40409:3aaade\n",
+                "41185:7aaaf\n",
+                "41595:0aaac\n",
+                "42436:2aaaabc\n",
+                "42510:9aaaa\n",
+                "44314:8aaab\n",
+                "45076:3aaaebdb\n",
+                "45377:9aaae\n",
+                "45475:8aaaea\n",
+                "48423:1aaaf\n",
+                "51387:1aaae\n",
+                "51681:2aaad\n",
+                "55013:8aaab\n",
+                "56669:3aaaccf\n",
+                "57673:5aaaa\n",
+                "59102:7aaab\n",
+                "59983:7aaaef\n",
+                "60072:4aaadf\n",
+                "62774:4aaafa\n",
+                "63098:1aaafc\n"
+            ],
+            "rc": 0
+        }
+    ]
+}

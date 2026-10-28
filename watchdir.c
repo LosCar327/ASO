@@ -41,8 +41,8 @@ void printUsage(int num) {
 
     fprintf(exitProgram, "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n");
     fprintf(exitProgram, "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n");
-    fprintf(exitProgram, "\tLOG\tLog file [default: '/tmp/watchdir.log'].\n");
-    fprintf(exitProgram, "\tDIR\tDirectory name [default: '.'].\n");
+    fprintf(exitProgram, "\tLOG     Log file [default: '/tmp/watchdir.log'].\n");
+    fprintf(exitProgram, "\tDIR     Directory name [default: '.'].\n\n");
 
     exit(num);
 }

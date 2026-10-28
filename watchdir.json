@@ -1,0 +1,388 @@
+{
+    "setup": {
+        "desc": "watchdir",
+        "timeout": 10,
+        "cmds": [
+            "touch nodir",
+            "mkdir -p wd"
+        ],
+        "binaries": ["libasosysintercept.so.0.1", "watchdir"]
+    },
+    "tests":
+    [
+        {
+            "cmt": "Opción no válida",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -x",
+            "out": [
+                "./watchdir: invalid option -- 'x'\n",
+                "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n",
+                "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n",
+                "\tLOG     Log file [default: '/tmp/watchdir.log'].\n",
+                "\tDIR     Directory name [default: '.'].\n\n"
+            ],
+            "rc": 1
+        },
+        {
+            "cmt": "Ayuda",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -h",
+            "out": [
+                "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n",
+                "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n",
+                "\tLOG     Log file [default: '/tmp/watchdir.log'].\n",
+                "\tDIR     Directory name [default: '.'].\n\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "getopt",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l nodir -l wd.log -n 0 -n 2 wd &) ; sleep 1 ; killall watchdir",
+                "wc -c wd.log ; rm -f wd.log"
+            ],
+            "out": "0 wd.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "SECONDS < 1",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -n 0",
+            "out": [
+                "ERROR: SECONDS must be a value in [1..60].\n",
+                "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n",
+                "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n",
+                "\tLOG     Log file [default: '/tmp/watchdir.log'].\n",
+                "\tDIR     Directory name [default: '.'].\n\n"
+            ],
+            "rc": 1
+        },
+        {
+            "cmt": "SECONDS > 60",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -n 61",
+            "out": [
+                "ERROR: SECONDS must be a value in [1..60].\n",
+                "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n",
+                "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n",
+                "\tLOG     Log file [default: '/tmp/watchdir.log'].\n",
+                "\tDIR     Directory name [default: '.'].\n\n"
+            ],
+            "rc": 1
+        },
+        {
+            "cmt": "Más de un directorio",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir dir1 dir2",
+            "out": [
+                "ERROR: './watchdir' does not support more than one directory.\n",
+                "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n",
+                "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n",
+                "\tLOG     Log file [default: '/tmp/watchdir.log'].\n",
+                "\tDIR     Directory name [default: '.'].\n\n"
+            ],
+            "rc": 1
+        },
+        {
+            "cmt": "Directorio inexistente",
+            "cmd": "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir nodir",
+            "out": [
+                "ERROR: 'nodir' is not a directory.\n",
+                "Usage: ./watchdir [-n SECONDS] [-l LOG] [DIR]\n",
+                "\tSECONDS Refresh rate in [1..60] seconds [default: 1].\n",
+                "\tLOG     Log file [default: '/tmp/watchdir.log'].\n",
+                "\tDIR     Directory name [default: '.'].\n\n"
+            ],
+            "rc": 1
+        },
+
+        {
+            "cmt": "Inicialización con directorio y archivo de log por defecto",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -n 60 &) ; sleep 1 ; killall watchdir",
+                "grep lib /tmp/watchdir.log",
+                "grep watchdir /tmp/watchdir.log",
+                "grep nodir /tmp/watchdir.log",
+                "grep wd /tmp/watchdir.log",
+                "rm -f /tmp/watchdir.log"
+            ],
+            "out": [
+                "Creation: libasosysintercept.so.0.1\n",
+                "Creation: watchdir\n",
+                "Creation: nodir\n",
+                "Creation: wd\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "Inicialización con directorio por defecto y archivo de log específico",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l /tmp/wd.log -n 60 &) ; sleep 1 ; killall watchdir",
+                "grep lib /tmp/wd.log",
+                "grep watchdir /tmp/wd.log",
+                "grep nodir /tmp/wd.log",
+                "grep wd /tmp/wd.log",
+                "rm -f /tmp/wd.log"
+            ],
+            "out": [
+                "Creation: libasosysintercept.so.0.1\n",
+                "Creation: watchdir\n",
+                "Creation: nodir\n",
+                "Creation: wd\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "Inicialización con directorio vacío y archivo de log por defecto",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir wd &) ; sleep 1 ; killall watchdir",
+                "wc -c /tmp/watchdir.log ; rm -f /tmp/watchdir.log"
+            ],
+            "out": "0 /tmp/watchdir.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Inicialización con directorio vacío y archivo de log específico",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log wd &) ; sleep 1 ; killall watchdir",
+                "wc -c wd.log ; rm -f wd.log"
+            ],
+            "out": "0 wd.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Error en sigaction()",
+            "cmd": [
+                "export ASOSYSINT_SIGACTION_ENABLED=0",
+                "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir"
+            ],
+            "out": "ERROR: sigaction()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en setitimer()",
+            "cmd": [
+                "export ASOSYSINT_SETITIMER_ENABLED=0",
+                "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir"
+            ],
+            "out": "ERROR: setitimer()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en scandir()",
+            "cmd": [
+                "export ASOSYSINT_SCANDIR_ENABLED=0",
+                "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir"
+            ],
+            "out": "ERROR: scandir()\n",
+            "rc": 1
+        },
+        {
+            "cmt": "Error en stat()",
+            "cmd": [
+                "export ASOSYSINT_STAT_ENABLED=0",
+                "LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir"
+            ],
+            "out": "ERROR: stat()\n",
+            "rc": 1
+        },
+        {
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir wd &) ; sleep 1 ; killall watchdir",
+                "wc -c /tmp/watchdir.log ; rm -f /tmp/watchdir.log"
+            ],
+            "out": "0 /tmp/watchdir.log\n",
+            "rc": 0
+        },
+        {
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir wd &) ; sleep 1",
+                "wc -c /tmp/watchdir.log ; touch wd/f1 ; sleep 1",
+                "grep 'Creation: f1' /tmp/watchdir.log ; wc -c /tmp/watchdir.log",
+                "killall watchdir ; rm -f /tmp/watchdir.log wd/f1"
+            ],
+            "out": [
+                "0 /tmp/watchdir.log\n",
+                "Creation: f1\n13 /tmp/watchdir.log\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "UpdateName",
+            "cmd": [
+                "touch wd/f1",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir wd &) ; sleep 1",
+                "grep 'Creation: f1' /tmp/watchdir.log ; wc -c /tmp/watchdir.log ; mv wd/f1 wd/g1 ; sleep 1",
+                "grep 'UpdateName: f1 -> g1' /tmp/watchdir.log ; wc -c /tmp/watchdir.log",
+                "killall watchdir ; rm -f /tmp/watchdir.log wd/g1"
+            ],
+            "out": [
+                "Creation: f1\n13 /tmp/watchdir.log\n",
+                "UpdateName: f1 -> g1\n34 /tmp/watchdir.log\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "UpdateSize",
+            "cmd": [
+                "touch wd/f1",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir wd &) ; sleep 1",
+                "grep 'Creation: f1' /tmp/watchdir.log ; wc -c /tmp/watchdir.log ; echo -n 1 >>  wd/f1 ; sleep 1",
+                "grep 'UpdateSize: f1: 0 -> 1' /tmp/watchdir.log ; wc -c /tmp/watchdir.log",
+                "killall watchdir ; rm -f /tmp/watchdir.log wd/f1"
+            ],
+            "out": [
+                "Creation: f1\n13 /tmp/watchdir.log\n",
+                "UpdateSize: f1: 0 -> 1\n36 /tmp/watchdir.log\n"
+            ],
+            "rc": 0
+        },
+        {
+            "cmt": "UpdateMtim",
+            "cmd": [
+                "touch wd/f1",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir wd &) ; sleep 1",
+                "grep 'Creation: f1' /tmp/watchdir.log ; wc -c /tmp/watchdir.log",
+                "touch wd/f1 ; sleep 1",
+                "grep 'UpdateMtim: f1: [0-9][0-9][0-9][0-9]-' /tmp/watchdir.log | wc -l ; wc -c /tmp/watchdir.log",
+                "killall watchdir ; rm -f /tmp/watchdir.log wd/f1"
+            ],
+            "out": "Creation: f1\n13 /tmp/watchdir.log\n1\n72 /tmp/watchdir.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Creación de 10000 archivos ANTES de la ejecución",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "10000\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Creación de 10000 archivos DESPUÉS de la ejecución",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log -n 2 wd &) ; sleep 1",
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}' ; sleep 2",
+                "grep Creation wd.log | wc -l",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "10000\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Modificación de 10000 archivos",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log wd &) ; sleep 1",
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}' ; sleep 2",
+                "grep UpdateMtim wd.log | wc -l",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "10000\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Borrado de 10000 archivos",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log wd &) ; sleep 1",
+                "bash -c 'rm -f wd/{0..9}{0..9}{0..9}{0..9}' ; sleep 2",
+                "grep Deletion wd.log | wc -l",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "10000\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Creación, modificación y borrado de 10000 archivos",
+            "cmd": [
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}' ; sleep 2",
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}{0..9}' ; sleep 2",
+                "bash -c 'rm -f wd/{0..9}{0..9}{0..9}{0..9}' ; sleep 2",
+                "grep Creation wd.log | wc -l",
+                "grep UpdateMtim wd.log | wc -l",
+                "grep Deletion wd.log | wc -l",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "0\n10000\n10000\n10000\n",
+            "rc": 0
+        },
+        {
+            "cmt": "UpdateName x 3",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log -n 2 wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "mv wd/500 wd/500.txt ; mv wd/999 wd/999.txt ; mv wd/000 wd/000.txt ; sleep 2",
+                "grep 'UpdateName: 500 -> 500.txt' wd.log | wc -l",
+                "grep 'UpdateName: 999 -> 999.txt' wd.log | wc -l",
+                "grep 'UpdateName: 000 -> 000.txt' wd.log | wc -l",
+                "wc -l wd.log",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "1000\n1\n1\n1\n1003 wd.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "UpdateSize x 3",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log -n 2 wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "echo -n 999 >> wd/999 ; echo -n 500 >> wd/500 ; echo -n 000 >> wd/000 ; sleep 2",
+                "grep 'UpdateSize: 999: 0 -> 3' wd.log | wc -l",
+                "grep 'UpdateSize: 500: 0 -> 3' wd.log | wc -l",
+                "grep 'UpdateSize: 000: 0 -> 3' wd.log | wc -l",
+                "wc -l wd.log",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "1000\n1\n1\n1\n1003 wd.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "UpdateMtim x 3",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log -n 2 wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "touch wd/600 wd/800 wd/200 ; sleep 2",
+                "grep 'UpdateMtim: 600: [0-9][0-9][0-9][0-9]-' wd.log | wc -l",
+                "grep 'UpdateMtim: 800: [0-9][0-9][0-9][0-9]-' wd.log | wc -l",
+                "grep 'UpdateMtim: 200: [0-9][0-9][0-9][0-9]-' wd.log | wc -l",
+                "wc -l wd.log",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "1000\n1\n1\n1\n1003 wd.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Deletion x 3",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log -n 2 wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "rm -f wd/000 wd/500 wd/999 ; sleep 2",
+                "grep 'Deletion: 000' wd.log | wc -l",
+                "grep 'Deletion: 500' wd.log | wc -l",
+                "grep 'Deletion: 999' wd.log | wc -l",
+                "wc -l wd.log",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "1000\n1\n1\n1\n1003 wd.log\n",
+            "rc": 0
+        },
+        {
+            "cmt": "Borrado del archivo de log",
+            "cmd": [
+                "bash -c 'touch wd/{0..9}{0..9}{0..9}'",
+                "(LD_PRELOAD=./libasosysintercept.so.0.1 ./watchdir -l wd.log -n 2 wd &) ; sleep 1",
+                "grep Creation wd.log | wc -l",
+                "pkill --signal SIGUSR1 watchdir ; sleep 2",
+                "wc -c wd.log",
+                "killall watchdir ; rm -f wd.log wd/*"
+            ],
+            "out": "1000\n0 wd.log\n",
+            "rc": 0
+        }
+    ]
+}
