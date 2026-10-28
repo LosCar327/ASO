@@ -10,11 +10,6 @@
 
 #define BUF_SIZE 1024
 
-typedef struct {
-    int opt;
-    int n;
-} Entrada;
-
 void printUsage(int num) {
     FILE *exitProgram;
 
@@ -32,20 +27,31 @@ void printUsage(int num) {
     fprintf(exitProgram, "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n");
     fprintf(exitProgram, "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n");
     fprintf(exitProgram, "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n");
+
+    exit(num);
 }
 
-void optionR(int s, char *buffer) {
+void printParametrosNoValidos(int argc, char **argv) {
+    fprintf(stderr, "Hay parametro nos validos. Uso: %s [-t] [-x NUMERO] [-s STRING] [-y NUMERO]\n", argv[0]);
+
+    for (int i = optind; i < argc; i++) {
+        fprintf(stdout, "param%d: \"%s\", ", i - optind, argv[i]);
+    }
+
+    fprintf(stdout, "\n");
+    exit(EXIT_FAILURE);
+}
+
+void leerER(char *r, char *buffer) {
     regex_t regex;
     int a = regcomp(&regex, optarg, REG_NEWLINE | REG_EXTENDED);
-    char *exp = optarg;
-    regmatch_t b[1];
+    regmatch_t match[1];
 
-
-    if (regcomp(&regex, exp, REG_EXTENDED | REG_NEWLINE) == 0) {
-        if (regexec(&regex, buffer, 1, b, 0) == 0) {
-            int longitud = b[0].rm_eo - b[0].rm_so;
+    if (regcomp(&regex, r, REG_EXTENDED | REG_NEWLINE) == 0) {
+        if (regexec(&regex, buffer, 1, match, 0) == 0) {
+            int longitud = match[0].rm_eo - match[0].rm_so;
             char *resultado = malloc((size_t)longitud+1);
-            memcpy(resultado, buffer + b[0].rm_so, (size_t)longitud);
+            memcpy(resultado, buffer + match[0].rm_so, (size_t)longitud);
             resultado[longitud] = '\0';
 
             fprintf(stdout, "%s\n", resultado);
@@ -61,95 +67,62 @@ void optionR(int s, char *buffer) {
     regfree(&regex);
 }
 
-int comprobando(int opt, int argc, Entrada *ent) {
-    for (int i = 0; i < argc-1; i++) {
-        if (opt == ent[i].opt) {
-            return 1;
-        }
-    }
-
-    return 0;
+void cambiarSalto() {
+    // La idea sería leer la entrada para cambiar \n por \0 de la entrada recibida
 }
 
-int main(int argc, char *argv[]) {
-    int opt, s = BUF_SIZE;
-    char *buffer = malloc(sizeof(int) * s);
-    ssize_t n;
-    Entrada *ent = malloc(sizeof(Entrada) * (argc-1));
-    char **prueba = malloc(sizeof(char *) * argc);
-
-    for (int i = 0; i < argc-1; i++) {
-        prueba[i] = malloc(strlen(argv[i + 1]) + 1);
-        strcpy(prueba[i], argv[i + 1]);
-    }
-
-    int na = 0;
-
-    for (int i = 0; i < argc-1; i++) {
-        int res = 0;
-
-        for (int j = 0; j < na; j++) {
-            if (atoi(prueba[i]) == ent[j].opt) {
-                ent[j].n++;
-                res = 1;
-                break;
-            }
-        }
-
-        if (res == 0) {
-            ent[na].opt = atoi(prueba[i]);
-            ent[na].n = 0;
-            na++;
-        }
-    }
-
-    free(prueba);
-
-    n = read(STDIN_FILENO, buffer, s-1);
-
-    if (n == -1) {
-        free(ent);
-        free(buffer);
-        exit(EXIT_FAILURE);
-    }
-
-    buffer[n] = '\0';
-
+int main(int argc, char **argv) {
+    int opt, s = BUF_SIZE, flagV = 0, flagN = 0, flagO = 0;
+    char *r = NULL;
+    
     optind = 1;
     while ((opt = getopt(argc, argv, "r:s:vnoh")) != -1) {
         switch (opt) {
             case 'r':
-                optionR(s, buffer);
+                r = optarg;
                 break;
             case 's':
 		        s = atoi(optarg);
                 break;
             case 'v':
+                flagV = 1;
                 break;
             case 'n':
+                flagN = 1;
                 break;
             case 'o':
+                flagO = 1;
                 break;
             case 'h':
                 printUsage(EXIT_SUCCESS);
-                free(ent);
-                free(buffer);
-                exit(EXIT_SUCCESS);
                 break;
             default:
                 printUsage(EXIT_FAILURE);
-                free(ent);
-                free(buffer);
-                exit(EXIT_FAILURE);
                 break;
         }
     }
 
     if (optind < argc) {
-        printUsage(EXIT_FAILURE);
+        printParametrosNoValidos(argc, argv);
     }
 
-    free(ent);
+    //fprintf(stdout, "r: \"%s\", s: %d, flagV: %d, flagN: %d, flagO: %d\n", r, s, flagV, flagN, flagO);
+
+    char *buffer = malloc(s);
+    ssize_t bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
+
+    if (bytes == -1) {
+        perror("read");
+        free(buffer);
+        return EXIT_FAILURE;
+    }
+
+    buffer[bytes] = '\0';
+
+    if (r != NULL) {
+        leerER(r, buffer);
+    }
+
     free(buffer);
 
     return EXIT_SUCCESS;
