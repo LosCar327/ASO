@@ -44,24 +44,23 @@ void printParametrosNoValidos(int argc, char **argv) {
 
 void leerER(char *r, char *buffer) {
     regex_t regex;
-    int a = regcomp(&regex, optarg, REG_NEWLINE | REG_EXTENDED);
     regmatch_t match[1];
 
-    if (regcomp(&regex, r, REG_EXTENDED | REG_NEWLINE) == 0) {
-        if (regexec(&regex, buffer, 1, match, 0) == 0) {
-            int longitud = match[0].rm_eo - match[0].rm_so;
-            char *resultado = malloc((size_t)longitud+1);
-            memcpy(resultado, buffer + match[0].rm_so, (size_t)longitud);
-            resultado[longitud] = '\0';
-
-            fprintf(stdout, "%s\n", resultado);
-
-            free(resultado);
-        }
+    if (regcomp(&regex, r, REG_EXTENDED | REG_NEWLINE) != 0) {
+        fprintf(stderr, "Error al compilar la expresión regular\n");
+        regfree(&regex);
+        return;
     }
 
-    else {
-        fprintf(stdout, "No coincide");
+    if (regexec(&regex, buffer, 1, match, 0) == 0) {
+        int longitud = (int)match[0].rm_eo - match[0].rm_so;
+        char *resultado = malloc((size_t)longitud+1);
+        memcpy(resultado, buffer + match[0].rm_so, (size_t)longitud);
+        resultado[longitud] = '\0';
+
+        fprintf(stdout, "%s\n", resultado);
+
+        free(resultado);
     }
 
     regfree(&regex);
@@ -106,16 +105,38 @@ int main(int argc, char **argv) {
         printParametrosNoValidos(argc, argv);
     }
 
-    //fprintf(stdout, "r: \"%s\", s: %d, flagV: %d, flagN: %d, flagO: %d\n", r, s, flagV, flagN, flagO);
-
     char *buffer = malloc(s);
-    ssize_t bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
+    ssize_t bytes = read(STDIN_FILENO, buffer, s-1);
 
     if (bytes == -1) {
         perror("read");
         free(buffer);
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
+
+
+    /*ssize_t write_all(int fd, char* buf, ssize_t num_read) {
+    ssize_t num_written = 0;
+    ssize_t num_left = num_read;
+    char* buf_left = buf;           // Esto es para hacer las escrituras parciales
+
+    while (num_left > 0) {
+        num_written = write(fd, buf_left, num_left);
+
+        if(num_written == -1) {
+            fprintf(stderr, "ERROR: write()\n");
+            return -1;
+        }
+
+        num_left -= num_written;
+        buf_left += num_written;
+    }
+
+    write(fd, "\n", 1);
+    return num_written;*/
+
+
+    
 
     buffer[bytes] = '\0';
 
