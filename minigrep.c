@@ -10,6 +10,11 @@
 
 #define BUF_SIZE 1024
 
+typedef struct {
+    int opt;
+    int n;
+} Entrada;
+
 void printUsage(int num) {
     FILE *exitProgram;
 
@@ -27,11 +32,10 @@ void printUsage(int num) {
     fprintf(exitProgram, "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n");
     fprintf(exitProgram, "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n");
     fprintf(exitProgram, "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n");
-
-    exit(num);
 }
 
-void optionR(regex_t regex, int s, char *buffer) {
+void optionR(int s, char *buffer) {
+    regex_t regex;
     int a = regcomp(&regex, optarg, REG_NEWLINE | REG_EXTENDED);
     char *exp = optarg;
     regmatch_t b[1];
@@ -57,28 +61,65 @@ void optionR(regex_t regex, int s, char *buffer) {
     regfree(&regex);
 }
 
+int comprobando(int opt, int argc, Entrada *ent) {
+    for (int i = 0; i < argc-1; i++) {
+        if (opt == ent[i].opt) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     int opt, s = BUF_SIZE;
-    regex_t regex;
     char *buffer = malloc(sizeof(int) * s);
     ssize_t n;
+    Entrada *ent = malloc(sizeof(Entrada) * (argc-1));
+    char **prueba = malloc(sizeof(char *) * argc);
+
+    for (int i = 0; i < argc-1; i++) {
+        prueba[i] = malloc(strlen(argv[i + 1]) + 1);
+        strcpy(prueba[i], argv[i + 1]);
+    }
+
+    int na = 0;
+
+    for (int i = 0; i < argc-1; i++) {
+        int res = 0;
+
+        for (int j = 0; j < na; j++) {
+            if (atoi(prueba[i]) == ent[j].opt) {
+                ent[j].n++;
+                res = 1;
+                break;
+            }
+        }
+
+        if (res == 0) {
+            ent[na].opt = atoi(prueba[i]);
+            ent[na].n = 0;
+            na++;
+        }
+    }
+
+    free(prueba);
 
     n = read(STDIN_FILENO, buffer, s-1);
 
     if (n == -1) {
+        free(ent);
         free(buffer);
         exit(EXIT_FAILURE);
     }
 
     buffer[n] = '\0';
 
-    //fgets(buffer, sizeof(buffer), stdin);
-
     optind = 1;
     while ((opt = getopt(argc, argv, "r:s:vnoh")) != -1) {
         switch (opt) {
             case 'r':
-                optionR(regex, s, buffer);
+                optionR(s, buffer);
                 break;
             case 's':
 		        s = atoi(optarg);
@@ -91,9 +132,15 @@ int main(int argc, char *argv[]) {
                 break;
             case 'h':
                 printUsage(EXIT_SUCCESS);
+                free(ent);
+                free(buffer);
+                exit(EXIT_SUCCESS);
                 break;
             default:
                 printUsage(EXIT_FAILURE);
+                free(ent);
+                free(buffer);
+                exit(EXIT_FAILURE);
                 break;
         }
     }
@@ -102,6 +149,7 @@ int main(int argc, char *argv[]) {
         printUsage(EXIT_FAILURE);
     }
 
+    free(ent);
     free(buffer);
 
     return EXIT_SUCCESS;
