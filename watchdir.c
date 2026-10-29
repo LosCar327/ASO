@@ -66,8 +66,73 @@ static int parse_seconds(const char *s) {
 // Función para filtrar entradas de directorio no deseadas, como "." y ".."
 
 static int filter(const struct dirent *entry) {
-    return (strncmp(entry->d_name, ".", sizeof(".")) != 0 && strncmp(entry->d_name, "..", sizeof("..")) != 0);
-    // El funcionamiento de strncmp() es que compara los primeros n caracteres de dos cadenas. Aquí se compara el nombre de la entrada con "." y ".." para filtrar esas entradas.
+    return !(entry->d_name[0] == '.' &&
+             (entry->d_name[1] == '\0' ||
+              (entry->d_name[1] == '.' &&
+               entry->d_name[2] == '\0')));
+}
+
+static void free_dir_entries(struct dirent **entries, int count) {
+    int i;
+
+    for (i = 0; i < count; i++) {
+        free(entries[i]);
+    }
+
+    free(entries);
+}
+
+static int log_initial_entries(FILE *log_file) {
+    struct dirent **entries = NULL;
+    struct stat entry_info;
+    char path[PATH_MAX];
+    int count;
+    int i;
+    int path_length;
+
+    count = scandir(dir_name, &entries, filter, alphasort);
+
+    if (count == -1) {
+        fprintf(stderr, "ERROR: scandir()\n");
+        return -1;
+    }
+
+    for (i = 0; i < count; i++) {
+        path_length = snprintf(path, sizeof(path), "%s/%s", dir_name, entries[i]->d_name);      
+        // snprintf() devuelve el número de caracteres que habrían sido escritos si el buffer fuera lo suficientemente grande, 
+        // excluyendo el carácter nulo final. Si el valor devuelto es negativo, significa que hubo un error. Si es mayor o igual al tamaño del buffer, 
+        // significa que el buffer no era lo suficientemente grande y se truncó la salida. Por eso se comprueba si path_length < 0 o path_length >= sizeof(path).
+
+        if (path_length < 0 || (size_t)path_length >= sizeof(path)) {
+            fprintf(stderr, "ERROR: stat()\n");
+            free_dir_entries(entries, count);
+            return -1;
+        }
+
+        if (stat(path, &entry_info) == -1) {
+            fprintf(stderr, "ERROR: stat()\n");
+            free_dir_entries(entries, count);
+            return -1;
+        }
+
+        if (fprintf(log_file, "Creation: %s\n", entries[i]->d_name) < 0) {
+            fprintf(stderr, "ERROR: fprintf()\n");
+            free_dir_entries(entries, count);
+            return -1;
+        }
+    }
+
+    free_dir_entries(entries, count);
+
+    if (fflush(log_file) == EOF) {      
+        // fflush() devuelve EOF si hay un error al vaciar el buffer del flujo. 
+        // Esto puede ocurrir si hay un error de escritura en el archivo, 
+        // por ejemplo, si se llena el disco o si se pierde la conexión a un sistema de archivos remoto.
+        fprintf(stderr, "ERROR: fflush()\n");
+        return -1;
+    }
+
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -144,11 +209,17 @@ int main(int argc, char *argv[]) {
         printUsage(EXIT_FAILURE);
     }
 
-    int log_fd = open(log_name, O_WRONLY | O_CREAT | O_APPEND, 0644); // Abrir el archivo de log en modo escritura, crear si no existe, y añadir al final. Permisos 0644.
+    FILE *log_file = fopen(log_name, "w");
+    // Con la opción "w", fopen() crea el archivo si no existe, o lo trunca a cero si ya existe.
 
-    if (log_fd == -1) {
-        perror("open");
-        printUsage(EXIT_FAILURE);
+    if (log_file == NULL) {
+        fprintf(stderr, "ERROR: fopen()\n");
+        return EXIT_FAILURE;
+    }
+
+    if (log_initial_entries(log_file) == -1) {
+        fclose(log_file);
+        return EXIT_FAILURE;
     }
 
     while (1) {
