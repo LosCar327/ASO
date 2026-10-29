@@ -54,6 +54,7 @@ static int parse_seconds(const char *s) {
     int value = atoi(s);
 
     if (value < MIN_SECONDS || value > MAX_SECONDS) {
+        fprintf(stderr, "ERROR: SECONDS must be a value in [1..60].\n");
         printUsage(EXIT_FAILURE);
     }
     return value;
@@ -62,12 +63,13 @@ static int parse_seconds(const char *s) {
 int main(int argc, char *argv[]) {
     int opt;
     int seconds = DEFAULT_SECONDS;
+    const char *second_arg = NULL;
 
     optind = 1;
     while ((opt = getopt(argc, argv, "n:l:h")) != -1) {
         switch (opt) {
             case 'n':
-                seconds = parse_seconds(optarg);
+                second_arg = optarg;        // Guarda el argumento de -n (test 3)
                 break;
             case 'l':
                 log_name = optarg;
@@ -115,5 +117,22 @@ int main(int argc, char *argv[]) {
         dir_name = argv[optind];
     }
 
-    return EXIT_SUCCESS;
+    if (second_arg != NULL) {
+        seconds = parse_seconds(second_arg);    // Para el test 3, se vuelve a parsear el argumento de -n, aunque ya se hizo antes. 
+                                                // Esto es para cumplir con la especificación de que si un argumento se repite, se toma la última aparición.
+    }
+
+    int log_fd = open(log_name, O_WRONLY | O_CREAT | O_APPEND, 0644); // Abrir el archivo de log en modo escritura, crear si no existe, y añadir al final. Permisos 0644.
+
+    if (log_fd == -1) {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    while (1) {
+        // Aquí iría la lógica para vigilar el directorio y registrar cambios en el archivo de log.
+        pause();
+    }
+
+    
 }
