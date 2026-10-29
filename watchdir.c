@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <limits.h>
+#include <signal.h>
+#include <sys/time.h>
 
 #define BUF_SIZE 4096
 // Parámetros default del ejemplo de ejecución
@@ -135,6 +137,12 @@ static int log_initial_entries(FILE *log_file) {
     return 0;
 }
 
+// Función para manejar la señal SIGALRM, que se invoca cuando expira el temporizador.
+
+static void handle_alarm(int signal) {
+    (void)signal;
+}
+
 int main(int argc, char *argv[]) {
     int opt;
     int seconds = DEFAULT_SECONDS;
@@ -218,6 +226,35 @@ int main(int argc, char *argv[]) {
     }
 
     if (log_initial_entries(log_file) == -1) {
+        fclose(log_file);
+        return EXIT_FAILURE;
+    }
+
+    // Incorporación para manejar la señal SIGALRM y establecer un temporizador que se dispare cada 'seconds' segundos.
+
+    struct sigaction sa;
+
+    sa.sa_handler = handle_alarm;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGALRM, &sa, NULL) == -1) {
+        fprintf(stderr, "ERROR: sigaction()\n");
+        fclose(log_file);
+        return EXIT_FAILURE;
+    }
+
+    // Incorporación de setitimer() para establecer un temporizador que se dispare cada 'seconds' segundos.
+
+    struct itimerval timer;
+
+    timer.it_value.tv_sec = seconds;
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = seconds;
+    timer.it_interval.tv_usec = 0;
+
+    if (setitimer(ITIMER_REAL, &timer, NULL) == -1) {
+        fprintf(stderr, "ERROR: setitimer()\n");
         fclose(log_file);
         return EXIT_FAILURE;
     }
