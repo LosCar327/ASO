@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
     struct stat dir_stat;
     if (stat(dir_name, &dir_stat) == -1) {      // Comprueba si el directorio existe y obtiene información sobre él. Si falla, muestra un error y sale.
         fprintf(stderr, "ERROR: stat()\n");
-        printUsage(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     if (!S_ISDIR(dir_stat.st_mode)) {           // Comprueba si el archivo es un directorio.
