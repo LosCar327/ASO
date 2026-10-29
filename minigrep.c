@@ -42,25 +42,74 @@ void printParametrosNoValidos(int argc, char **argv) {
     exit(EXIT_FAILURE);
 }
 
-void leerER(char *r, char *buffer) {
+ssize_t write_all(int fd, char* buf, ssize_t num_read) {
+    ssize_t num_written = 0;
+    ssize_t num_left = num_read;
+    char* buf_left = buf;
+
+    if (buf[0] == '\0') {
+        return 0;
+    }
+
+    while (num_left > 0) {
+        num_written = write(fd, buf_left, num_left);
+
+        if(num_written == -1) {
+            fprintf(stderr, "ERROR: write()\n");
+            return -1;
+        }
+
+        num_left -= num_written;
+        buf_left += num_written;
+    }
+
+    write(fd, "\n", 1);
+    return num_written;
+}
+
+void leerER(char *r, char *buffer, int flagV) {
     regex_t regex;
     regmatch_t match[1];
+    int flag;
 
     if (regcomp(&regex, r, REG_EXTENDED | REG_NEWLINE) != 0) {
         fprintf(stderr, "Error al compilar la expresión regular\n");
-        regfree(&regex);
         return;
     }
 
-    if (regexec(&regex, buffer, 1, match, 0) == 0) {
-        int longitud = (int)match[0].rm_eo - match[0].rm_so;
-        char *resultado = malloc((size_t)longitud+1);
-        memcpy(resultado, buffer + match[0].rm_so, (size_t)longitud);
-        resultado[longitud] = '\0';
+    size_t inicio = 0;
+    size_t i = 0;
+    char *linea;
 
-        fprintf(stdout, "%s\n", resultado);
+    while (1) {
+        while (buffer[i] != '\n' && buffer[i] != '\0') {
+            i++;
+        }
 
-        free(resultado);
+        size_t longitud = i - inicio;
+        linea = malloc(longitud + 1);
+
+        if (linea == NULL) {
+            break;
+        }
+
+        memcpy(linea, buffer + inicio, longitud);
+        linea[longitud] = '\0';
+
+        int ret = regexec(&regex, linea, 0, NULL, 0);
+
+        if ((flagV == 0 && ret == 0) || (flagV == 1 && ret == REG_NOMATCH)) {
+            write_all(STDOUT_FILENO, linea, (ssize_t)longitud);
+        }
+
+        free(linea);
+
+        if (buffer[i] == '\0') {
+            break;
+        }
+
+        i++;
+        inicio = i;
     }
 
     regfree(&regex);
@@ -114,34 +163,10 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-
-    /*ssize_t write_all(int fd, char* buf, ssize_t num_read) {
-    ssize_t num_written = 0;
-    ssize_t num_left = num_read;
-    char* buf_left = buf;           // Esto es para hacer las escrituras parciales
-
-    while (num_left > 0) {
-        num_written = write(fd, buf_left, num_left);
-
-        if(num_written == -1) {
-            fprintf(stderr, "ERROR: write()\n");
-            return -1;
-        }
-
-        num_left -= num_written;
-        buf_left += num_written;
-    }
-
-    write(fd, "\n", 1);
-    return num_written;*/
-
-
-    
-
     buffer[bytes] = '\0';
 
     if (r != NULL) {
-        leerER(r, buffer);
+        leerER(r, buffer, flagV);
     }
 
     free(buffer);
