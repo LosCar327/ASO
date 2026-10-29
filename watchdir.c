@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <limits.h>
 
 #define BUF_SIZE 4096
 // Parámetros default del ejemplo de ejecución
@@ -59,6 +61,13 @@ static int parse_seconds(const char *s) {
         printUsage(EXIT_FAILURE);
     }
     return value;
+}
+
+// Función para filtrar entradas de directorio no deseadas, como "." y ".."
+
+static int filter(const struct dirent *entry) {
+    return (strncmp(entry->d_name, ".", sizeof(".")) != 0 && strncmp(entry->d_name, "..", sizeof("..")) != 0);
+    // El funcionamiento de strncmp() es que compara los primeros n caracteres de dos cadenas. Aquí se compara el nombre de la entrada con "." y ".." para filtrar esas entradas.
 }
 
 int main(int argc, char *argv[]) {
