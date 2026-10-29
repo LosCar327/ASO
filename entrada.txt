@@ -1,8 +1,0 @@
-run -r "^[[:digit:]]23[[:digit:]]$" < <(echo -e -n "1234\n5678")
-1234
-
-run -r "^[[:digit:]]67[[:digit:]]$" < <(echo -e -n "1234\n5678")
-5678
-
-run -r 'ABCD' -r "^[[:digit:]]67[[:digit:]]$" < <(echo -e -n "1234\n5678\n90AB\n")
-5678

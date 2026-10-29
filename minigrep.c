@@ -27,6 +27,7 @@ void printUsage(int num) {
     fprintf(exitProgram, "\t-v Muestra las líneas que NO sean reconocidas por la expresión regular.\n");
     fprintf(exitProgram, "\t-n Antepone a cada línea mostrada su número de línea en la entrada.\n");
     fprintf(exitProgram, "\t-o Muestra solo la parte de cada línea reconocida por la expresión regular.\n");
+    fprintf(exitProgram, "\0");
 
     exit(num);
 }
