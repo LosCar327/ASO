@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #define BUF_SIZE 4096
 // Parámetros default del ejemplo de ejecución
@@ -110,6 +111,7 @@ int main(int argc, char *argv[]) {
     ./watchdir a b --> argc=3, optind=1, quedan dos argumentos posicionales, error de uso.
     */
     if (optind < argc - 1) {
+        fprintf(stderr, "ERROR: '%s' does not support more than one directory.\n", argv[0]);    // argv[0] es el nombre del programa, que se muestra en el mensaje de error.
         printUsage(EXIT_FAILURE);
     }
 
@@ -122,11 +124,22 @@ int main(int argc, char *argv[]) {
                                                 // Esto es para cumplir con la especificación de que si un argumento se repite, se toma la última aparición.
     }
 
+    struct stat dir_stat;
+    if (stat(dir_name, &dir_stat) == -1) {      // Comprueba si el directorio existe y obtiene información sobre él. Si falla, muestra un error y sale.
+        fprintf(stderr, "ERROR: stat()\n");
+        printUsage(EXIT_FAILURE);
+    }
+
+    if (!S_ISDIR(dir_stat.st_mode)) {           // Comprueba si el archivo es un directorio.
+        fprintf(stderr, "ERROR: '%s' is not a directory.\n", dir_name);
+        printUsage(EXIT_FAILURE);
+    }
+
     int log_fd = open(log_name, O_WRONLY | O_CREAT | O_APPEND, 0644); // Abrir el archivo de log en modo escritura, crear si no existe, y añadir al final. Permisos 0644.
 
     if (log_fd == -1) {
         perror("open");
-        exit(EXIT_FAILURE);
+        printUsage(EXIT_FAILURE);
     }
 
     while (1) {
@@ -134,5 +147,5 @@ int main(int argc, char *argv[]) {
         pause();
     }
 
-    
+
 }
