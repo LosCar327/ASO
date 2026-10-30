@@ -1,11 +1,12 @@
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <assert.h>
-#include <fcntl.h>
+//#include <stdint.h>
+//#include <assert.h>
+//#include <fcntl.h>
 #include <unistd.h>
-#include <string.h>
+//#include <string.h>
+#include <stdbool.h>
 #include <regex.h>
 
 #define BUF_SIZE 1024
@@ -34,21 +35,47 @@ void printUsage(int num) {
     exit(num);
 }
 
+ssize_t read_all(char *recept_buf, ssize_t recept_buf_size) {
+    ssize_t total = 0;
+    ssize_t num_readed = 0;
+
+    while (total < recept_buf_size) {
+        num_readed = read(STDIN_FILENO, recept_buf + total, recept_buf_size - total);
+
+        if (num_readed == 0) {
+            break;
+        }
+
+        if (num_readed == -1) {
+            return -1;
+        }
+
+        total = total + num_readed;
+    }
+
+    if (recept_buf_size > 0) {
+        recept_buf[total] = '\0';
+    }
+
+    return total;
+}
+
+
 ssize_t write_all(int fd, char* buf, ssize_t num_read) {
     ssize_t num_written = 0;
     ssize_t num_left = num_read;
     char* buf_left = buf;
     
-    if (buf[0] == '\0') {
-        return 0;
-    }
+    /*if (buf[0] == '\0') {
+        fprintf(stderr, "ERROR: write()\n");
+        exit(EXIT_FAILURE);
+    }*/
 
     while (num_left > 0) {
         num_written = write(fd, buf_left, num_left);
 
         if(num_written == -1) {
-            fprintf(stderr, "ERROR: write()\n");
-            exit(EXIT_FAILURE);
+            return -1;
         }
 
         num_left -= num_written;
@@ -56,63 +83,27 @@ ssize_t write_all(int fd, char* buf, ssize_t num_read) {
     }
 
     if (write(fd, "\n", 1) == -1) {
-        fprintf(stderr, "ERROR: write()\n");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     return num_written;
 }
 
-size_t leerER(char *r, char *bufferL, char *bufferE, size_t total, int flagV) {
-    regex_t regex;
-    regmatch_t match[1];
-    int flag;
-
-    if (regcomp(&regex, r, REG_EXTENDED | REG_NEWLINE) != 0) {
-        fprintf(stderr, "ERROR: REGEX mal construida\n");
-        exit(EXIT_FAILURE);
+int treatRE(regex_t regex, char *lineBuffer, char *writeBuffer, size_t total, int flagV) { 
+    size_t k;
+    for (k = 0; k < total; k++) {
+        writeBuffer[k] = lineBuffer[k];
     }
 
-    size_t inicio = 0;
-    size_t i = 0;
+    writeBuffer[total] = '\0';
 
-    while (i < total) {
-        //while (i < total && bufferL[i] != '\n' && bufferL[i] != '\0') {
-        while (i < total && bufferL[i] != '\n') {
-            i++;
-        }
+    int ret = regexec(&regex, writeBuffer, 0, NULL, 0);
 
-        if (i >= total) {
-            break;
-        }
-
-        size_t longitud = i - inicio;
-
-        if (longitud + 1 > MAX_LINE_SIZE) {
-            fprintf(stderr, "ERROR: Línea demasiado larga\n");
-            exit(EXIT_FAILURE);
-        }
-
-        memcpy(bufferE, bufferL + inicio, longitud);
-        bufferE[longitud] = '\0';
-
-        int ret = regexec(&regex, bufferE, 0, NULL, 0);
-
-        if ((flagV == 0 && ret == 0) || (flagV == 1 && ret == REG_NOMATCH)) {
-            write_all(STDOUT_FILENO, bufferE, (ssize_t)longitud);
-        }
-
-        i++;
-        inicio = i;
+    if ((flagV == 0 && ret == 0) || (flagV == 1 && ret == REG_NOMATCH)) {
+        return (int) write_all(STDOUT_FILENO, writeBuffer, (ssize_t)total);
     }
 
-    regfree(&regex);
-
-    return total - inicio;
-}
-
-void cambiarSalto() {
-    // La idea sería leer la entrada para cambiar \n por \0 de la entrada recibida
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -156,72 +147,103 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    char *bufferL = malloc(s);
-    char *bufferE = malloc(s);
+    char *readBuffer = malloc(s);
+    char *writeBuffer = malloc(s);
+    char *bufferAux = malloc(s);
 
-    if (bufferL == NULL || bufferE == NULL) {
+    if (readBuffer == NULL || writeBuffer == NULL || bufferAux == NULL) {
         fprintf(stderr, "ERROR: malloc()\n");
         exit(EXIT_FAILURE);
     }
 
-    ssize_t bytes_leidos = 0;
-    size_t bytes_pendientes = 0;
+    regex_t regex;
 
-    while ((bytes_leidos = read(STDIN_FILENO, bufferL + bytes_pendientes, s - bytes_leidos)) > 0) {
-        size_t total = bytes_pendientes + bytes_leidos;
-        bufferL[total] = '\0';
+    if (regcomp(&regex, r, REG_EXTENDED | REG_NEWLINE) != 0) {
+        fprintf(stderr, "ERROR: REGEX mal construida\n");
+        exit(EXIT_FAILURE);
+    }
 
-        if (r != NULL) {
-            size_t bytes_sobrantes = leerER(r, bufferL, bufferE, total, flagV);
+    ssize_t received_bytes = 0;
+    size_t read_bytes = 0;
 
-            if (bytes_sobrantes > 0) {
-                memmove(bufferL, bufferL + (total - bytes_sobrantes), bytes_sobrantes);
-            }
+    bool exitBucle = false;
 
-            bytes_pendientes = bytes_sobrantes;
+    while (exitBucle == false) {
+        if (isatty(STDIN_FILENO)) {
+            break;
         }
 
-        if (bytes_pendientes >= s) {
-            fprintf(stderr, "ERROR: Línea demasiado larga\n");
-            free(bufferL);
-            free(bufferE);
+        received_bytes = read_all(readBuffer, s);
+
+        if (received_bytes < 0) {
+            fprintf(stderr, "ERROR: read()\n");
+            free(readBuffer);
+            free(writeBuffer);
+            free(bufferAux);
+            regfree(&regex);
             exit(EXIT_FAILURE);
         }
+
+        if (received_bytes == 0) {
+            if (read_bytes == 0) {
+                break;
+            }
+            readBuffer[0] = '\n';
+            received_bytes = 1;
+            exitBucle = true;
+        }
+
+        int i = 0;
+        size_t bytes_linea = 0;
+        size_t pending_bytes = received_bytes;
+
+
+        //for (size_t i = 0; i < received_bytes; i++)
+
+        while (read_bytes < received_bytes) {
+
+            bytes_linea++;
+            read_bytes++;
+
+            if (readBuffer[i] != '\n') {
+                if (bytes_linea >= MAX_LINE_SIZE) {
+                    fprintf(stderr, "ERROR: Línea demasiado larga\n");
+                    free(readBuffer);
+                    free(writeBuffer);
+                    free(bufferAux);
+                    regfree(&regex);
+                    exit(EXIT_FAILURE);
+                }
+
+                bufferAux[bytes_linea] = readBuffer[i];
+                bytes_linea++;
+            }
+
+            else {
+                if (treatRE(regex, bufferAux, writeBuffer, bytes_linea, flagV) == -1) {
+                    fprintf(stderr, "ERROR: write()\n");
+                    free(readBuffer);
+                    free(writeBuffer);
+                    free(bufferAux);
+                    regfree(&regex);
+                    exit(EXIT_FAILURE);
+                }
+
+                bytes_linea = 0;
+            }
+            i++;
+            read_bytes++;
+        }
+
+        /*if (read_bytes >= received_bytes) {
+            return EXIT_FAILURE;
+        }*/
     }
 
-    if (bytes_leidos == -1) {
-        fprintf(stderr, "ERROR: read()\n");
-        free(bufferL);
-        free(bufferE);
-        exit(EXIT_FAILURE);
-    }
-
-    free(bufferL);
-    free(bufferE);
+    free(readBuffer);
+    free(writeBuffer);
+    free(bufferAux);
+    regfree(&regex);
 
     return EXIT_SUCCESS;
-
-    /*
-    ssize_t bytes = 0;
-
-    if (!isatty(STDIN_FILENO)) {
-        bytes = read(STDIN_FILENO, bufferL, s);
-    }
-
-    if (bytes == -1) {
-        fprintf(stderr, "ERROR: read()\n");
-        free(bufferL);
-        exit(EXIT_FAILURE);
-    }
-
-    bufferL[bytes] = '\0';
-
-    if (r != NULL) {
-        leerER(r, bufferL, bufferE, flagV);
-    }
-
-    free(bufferL);
-    free(bufferE);
-
-    return EXIT_SUCCESS;*/
 }
