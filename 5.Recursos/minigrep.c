@@ -159,9 +159,8 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    ssize_t received_bytes = 0;
     size_t read_bytes = 0;
-
+    size_t treated_bytes = 0;
     bool exitBucle = false;
 
     while (exitBucle == false) {
@@ -169,7 +168,7 @@ int main(int argc, char **argv) {
             break;
         }
 
-        received_bytes = read_all(readBuffer, s);
+        ssize_t received_bytes = read_all(readBuffer, s);
 
         if (received_bytes < 0) {
             fprintf(stderr, "ERROR: read()\n");
@@ -189,19 +188,16 @@ int main(int argc, char **argv) {
             exitBucle = true;
         }
 
-        int i = 0;
         size_t line_bytes = 0;
         size_t pending_bytes = received_bytes;
 
+        while (read_bytes < received_bytes) {
 
-        //for (size_t i = 0; i < received_bytes; i++)
+            char byte = *readBuffer;
+            pending_bytes++;
+            read_bytes++;
 
-        while (read_bytes <= received_bytes) {
-
-            //line_bytes++;
-            //read_bytes++;
-
-            if (readBuffer[i] != '\n') {
+            if (byte != '\n') {
                 if (line_bytes >= MAX_LINE_SIZE) {
                     fprintf(stderr, "ERROR: Línea demasiado larga\n");
                     free(readBuffer);
@@ -211,29 +207,33 @@ int main(int argc, char **argv) {
                     exit(EXIT_FAILURE);
                 }
 
-                auxBuffer[line_bytes] = readBuffer[i];
+                auxBuffer[line_bytes] = byte;
                 line_bytes++;
+                continue;
+            }
+
+            size_t total_line_bytes = line_bytes;
+            line_bytes = 0;
+            treated_bytes++;
+
+            if (treatRE(regex, auxBuffer, writeBuffer, line_bytes, flagV) == -1) {
+                fprintf(stderr, "ERROR: write()\n");
+                free(readBuffer);
+                free(writeBuffer);
+                free(auxBuffer);
+                regfree(&regex);
+                exit(EXIT_FAILURE);
             }
 
             else {
-                if (treatRE(regex, auxBuffer, writeBuffer, line_bytes, flagV) == -1) {
-                    fprintf(stderr, "ERROR: write()\n");
-                    free(readBuffer);
-                    free(writeBuffer);
-                    free(auxBuffer);
-                    regfree(&regex);
-                    exit(EXIT_FAILURE);
-                }
-
-                line_bytes = 0;
+                fprintf(stderr, "ERROR: regexec()\n");
+                free(readBuffer);
+                free(writeBuffer);
+                free(auxBuffer);
+                regfree(&regex);
+                exit(EXIT_FAILURE);
             }
-            i++;
-            read_bytes++;
         }
-
-        /*if (read_bytes >= received_bytes) {
-            return EXIT_FAILURE;
-        }*/
     }
 
     free(readBuffer);
