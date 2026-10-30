@@ -1,12 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
-//#include <stdint.h>
-//#include <assert.h>
-//#include <fcntl.h>
-#include <unistd.h>
-//#include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <regex.h>
 
 #define BUF_SIZE 1024
@@ -149,9 +145,9 @@ int main(int argc, char **argv) {
 
     char *readBuffer = malloc(s);
     char *writeBuffer = malloc(s);
-    char *bufferAux = malloc(s);
+    char *auxBuffer = malloc(s);
 
-    if (readBuffer == NULL || writeBuffer == NULL || bufferAux == NULL) {
+    if (readBuffer == NULL || writeBuffer == NULL || auxBuffer == NULL) {
         fprintf(stderr, "ERROR: malloc()\n");
         exit(EXIT_FAILURE);
     }
@@ -179,57 +175,57 @@ int main(int argc, char **argv) {
             fprintf(stderr, "ERROR: read()\n");
             free(readBuffer);
             free(writeBuffer);
-            free(bufferAux);
+            free(auxBuffer);
             regfree(&regex);
             exit(EXIT_FAILURE);
         }
 
         if (received_bytes == 0) {
-            if (read_bytes == 0) {
+            /*if (read_bytes == 0) {
                 break;
             }
             readBuffer[0] = '\n';
-            received_bytes = 1;
+            received_bytes = 1;*/
             exitBucle = true;
         }
 
         int i = 0;
-        size_t bytes_linea = 0;
+        size_t line_bytes = 0;
         size_t pending_bytes = received_bytes;
 
 
         //for (size_t i = 0; i < received_bytes; i++)
 
-        while (read_bytes < received_bytes) {
+        while (read_bytes <= received_bytes) {
 
-            bytes_linea++;
-            read_bytes++;
+            //line_bytes++;
+            //read_bytes++;
 
             if (readBuffer[i] != '\n') {
-                if (bytes_linea >= MAX_LINE_SIZE) {
+                if (line_bytes >= MAX_LINE_SIZE) {
                     fprintf(stderr, "ERROR: Línea demasiado larga\n");
                     free(readBuffer);
                     free(writeBuffer);
-                    free(bufferAux);
+                    free(auxBuffer);
                     regfree(&regex);
                     exit(EXIT_FAILURE);
                 }
 
-                bufferAux[bytes_linea] = readBuffer[i];
-                bytes_linea++;
+                auxBuffer[line_bytes] = readBuffer[i];
+                line_bytes++;
             }
 
             else {
-                if (treatRE(regex, bufferAux, writeBuffer, bytes_linea, flagV) == -1) {
+                if (treatRE(regex, auxBuffer, writeBuffer, line_bytes, flagV) == -1) {
                     fprintf(stderr, "ERROR: write()\n");
                     free(readBuffer);
                     free(writeBuffer);
-                    free(bufferAux);
+                    free(auxBuffer);
                     regfree(&regex);
                     exit(EXIT_FAILURE);
                 }
 
-                bytes_linea = 0;
+                line_bytes = 0;
             }
             i++;
             read_bytes++;
@@ -242,7 +238,7 @@ int main(int argc, char **argv) {
 
     free(readBuffer);
     free(writeBuffer);
-    free(bufferAux);
+    free(auxBuffer);
     regfree(&regex);
 
     return EXIT_SUCCESS;
