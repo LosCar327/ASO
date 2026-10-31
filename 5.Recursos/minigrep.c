@@ -57,46 +57,50 @@ ssize_t read_all(char *recept_buf, ssize_t recept_buf_size) {
 }
 
 
-ssize_t write_all(int fd, char* buf, ssize_t num_read) {
-    ssize_t num_written = 0;
-    ssize_t num_left = num_read;
-    char* buf_left = buf;
-    
-    /*if (buf[0] == '\0') {
-        fprintf(stderr, "ERROR: write()\n");
-        exit(EXIT_FAILURE);
-    }*/
+ssize_t write_all(int fd, char* lineBuffer, size_t total, char* writeBuffer, size_t s) {
+    size_t bytes_sent = 0;
 
-    while (num_left > 0) {
-        num_written = write(fd, buf_left, num_left);
+    while (bytes_sent < total) {
+        size_t chunk = (total - bytes_sent < (size_t)s) ? (total - bytes_sent) : (size_t)s;
 
-        if(num_written == -1) {
-            return -1;
+        for (size_t i = 0; i < chunk; i++) {
+            writeBuffer[i] = lineBuffer[bytes_sent + i];
         }
 
-        num_left -= num_written;
-        buf_left += num_written;
-    }
+        size_t written_in_chunk = 0;
 
-    if (write(fd, "\n", 1) == -1) {
-        return -1;
-    }
+        while (written_in_chunk < chunk) {
+            ssize_t w = write(STDOUT_FILENO, writeBuffer + written_in_chunk, chunk - written_in_chunk);
 
-    return num_written;
+            if (w == -1) {
+                return -1;
+            }
+            written_in_chunk += w;
+        }
+
+            bytes_sent += chunk;
+        }
+
+        ssize_t nl_written = 0;
+
+        while (nl_written < 1) {
+            ssize_t w = write(STDOUT_FILENO, "\n", 1 - nl_written);
+
+            if (w == -1) {
+                return -1;
+            }
+            nl_written += w;
+        }
+    return (ssize_t) total;
 }
 
-int treatRE(regex_t regex, char *lineBuffer, char *writeBuffer, size_t total, int flagV) { 
-    size_t k;
-    for (k = 0; k < total; k++) {
-        writeBuffer[k] = lineBuffer[k];
-    }
-
-    writeBuffer[total] = '\0';
-
-    int ret = regexec(&regex, writeBuffer, 0, NULL, 0);
+int treatRE(regex_t regex, char *lineBuffer, char *writeBuffer, size_t total, int flagV, int s) { 
+    int ret = regexec(&regex, lineBuffer, 0, NULL, 0);
 
     if ((flagV == 0 && ret == 0) || (flagV == 1 && ret == REG_NOMATCH)) {
-        return (int) write_all(STDOUT_FILENO, writeBuffer, (ssize_t)total);
+        if (write_all(STDOUT_FILENO, lineBuffer, total, writeBuffer, (size_t)s) == -1) {
+            return -1;
+        }
     }
 
     return 0;
@@ -145,10 +149,10 @@ int main(int argc, char **argv) {
 
     char *readBuffer = malloc(s);
     char *writeBuffer = malloc(s);
-    char *auxBuffer = malloc(s);
-    char *lineBuffer = malloc(s);
-
-    if (readBuffer == NULL || writeBuffer == NULL || auxBuffer == NULL || lineBuffer == NULL) {
+    char *lineBuffer = malloc(MAX_LINE_SIZE);
+    char *auxBuffer = NULL;
+    
+    if (readBuffer == NULL || writeBuffer == NULL || lineBuffer == NULL) {
         fprintf(stderr, "ERROR: malloc()\n");
         exit(EXIT_FAILURE);
     }
@@ -176,30 +180,18 @@ int main(int argc, char **argv) {
             fprintf(stderr, "ERROR: read()\n");
             free(readBuffer);
             free(writeBuffer);
-            free(auxBuffer);
             free(lineBuffer);
             regfree(&regex);
             exit(EXIT_FAILURE);
         }
 
         if (received_bytes == 0) {
-            if (line_bytes > 0) {
-                if (treatRE(regex, lineBuffer, writeBuffer, line_bytes, flagV) == -1) {
-                    fprintf(stderr, "ERROR: write()\n");
-                    free(readBuffer);
-                    free(writeBuffer);
-                    free(lineBuffer);
-                    regfree(&regex);
-                    exit(EXIT_FAILURE);
-                }
-            }
-            /*if (read_bytes == 0) {
+            if (line_bytes == 0) {
                 break;
             }
             readBuffer[0] = '\n';
-            received_bytes = 1;*/
+            received_bytes = 1;
             exitBucle = true;
-            break;
         }
 
         size_t pending_bytes = received_bytes;
@@ -226,10 +218,19 @@ int main(int argc, char **argv) {
                 line_bytes++;
                 continue;
             }
-            //read_bytes = 0;
-            //treated_bytes++;
 
-            if (treatRE(regex, lineBuffer, writeBuffer, line_bytes, flagV) == -1) {
+            if (line_bytes >= MAX_LINE_SIZE) {
+                fprintf(stderr, "ERROR: Línea demasiado larga\n");
+                free(readBuffer);
+                free(writeBuffer);
+                free(lineBuffer);
+                regfree(&regex);
+                exit(EXIT_FAILURE);
+            }
+
+            lineBuffer[line_bytes] = '\0';
+
+            if (treatRE(regex, lineBuffer, writeBuffer, line_bytes, flagV, s) == -1) {
                 fprintf(stderr, "ERROR: write()\n");
                 free(readBuffer);
                 free(writeBuffer);
