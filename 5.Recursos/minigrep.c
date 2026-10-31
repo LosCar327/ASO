@@ -146,8 +146,9 @@ int main(int argc, char **argv) {
     char *readBuffer = malloc(s);
     char *writeBuffer = malloc(s);
     char *auxBuffer = malloc(s);
+    char *lineBuffer = malloc(s);
 
-    if (readBuffer == NULL || writeBuffer == NULL || auxBuffer == NULL) {
+    if (readBuffer == NULL || writeBuffer == NULL || auxBuffer == NULL || lineBuffer == NULL) {
         fprintf(stderr, "ERROR: malloc()\n");
         exit(EXIT_FAILURE);
     }
@@ -161,6 +162,7 @@ int main(int argc, char **argv) {
 
     size_t read_bytes = 0;
     size_t treated_bytes = 0;
+    size_t line_bytes = 0;
     bool exitBucle = false;
 
     while (exitBucle == false) {
@@ -175,70 +177,74 @@ int main(int argc, char **argv) {
             free(readBuffer);
             free(writeBuffer);
             free(auxBuffer);
+            free(lineBuffer);
             regfree(&regex);
             exit(EXIT_FAILURE);
         }
 
         if (received_bytes == 0) {
+            if (line_bytes > 0) {
+                if (treatRE(regex, lineBuffer, writeBuffer, line_bytes, flagV) == -1) {
+                    fprintf(stderr, "ERROR: write()\n");
+                    free(readBuffer);
+                    free(writeBuffer);
+                    free(lineBuffer);
+                    regfree(&regex);
+                    exit(EXIT_FAILURE);
+                }
+            }
             /*if (read_bytes == 0) {
                 break;
             }
             readBuffer[0] = '\n';
             received_bytes = 1;*/
             exitBucle = true;
+            break;
         }
 
-        size_t line_bytes = 0;
         size_t pending_bytes = received_bytes;
+        auxBuffer = readBuffer;
+        read_bytes = 0;
 
         while (read_bytes < received_bytes) {
-
-            char byte = *readBuffer;
+            char byte = *auxBuffer;
             pending_bytes++;
             read_bytes++;
+            auxBuffer++;
 
             if (byte != '\n') {
                 if (line_bytes >= MAX_LINE_SIZE) {
                     fprintf(stderr, "ERROR: Línea demasiado larga\n");
                     free(readBuffer);
                     free(writeBuffer);
-                    free(auxBuffer);
+                    free(lineBuffer);
                     regfree(&regex);
                     exit(EXIT_FAILURE);
                 }
 
-                auxBuffer[line_bytes] = byte;
+                lineBuffer[line_bytes] = byte;
                 line_bytes++;
                 continue;
             }
+            //read_bytes = 0;
+            //treated_bytes++;
 
-            size_t total_line_bytes = line_bytes;
-            line_bytes = 0;
-            treated_bytes++;
-
-            if (treatRE(regex, auxBuffer, writeBuffer, line_bytes, flagV) == -1) {
+            if (treatRE(regex, lineBuffer, writeBuffer, line_bytes, flagV) == -1) {
                 fprintf(stderr, "ERROR: write()\n");
                 free(readBuffer);
                 free(writeBuffer);
-                free(auxBuffer);
+                free(lineBuffer);
                 regfree(&regex);
                 exit(EXIT_FAILURE);
             }
 
-            else {
-                fprintf(stderr, "ERROR: regexec()\n");
-                free(readBuffer);
-                free(writeBuffer);
-                free(auxBuffer);
-                regfree(&regex);
-                exit(EXIT_FAILURE);
-            }
+            line_bytes = 0;
         }
     }
 
     free(readBuffer);
     free(writeBuffer);
-    free(auxBuffer);
+    free(lineBuffer);
     regfree(&regex);
 
     return EXIT_SUCCESS;
